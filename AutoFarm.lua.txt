@@ -57,18 +57,18 @@ local rarities = {
 	"Rare",
 	"Epic",
 	"Legendary",
+	"Mythic"
 	"Secret",
 	"Godly",
 	"Divine",
 	"Celestial",
 	"Eternal",
 	"Transcendent",
+	"Cosmic",
 	"Astral",
 	"Primordial",
 	"Infinite",
 	"Omnipotent",
-	"Cosmic",
-	"Mythic"
 }
 
 local allowedRarity = {}
