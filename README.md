@@ -1,0 +1,1 @@
+# AutoFarm.by-art
