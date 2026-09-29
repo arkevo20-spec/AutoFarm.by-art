@@ -139,9 +139,8 @@ topBar.BackgroundColor3 = Color3.fromRGB(140, 0, 180)
 topBar.TextColor3 = Color3.fromRGB(255, 255, 255)
 topBar.TextSize = 13
 topBar.Font = Enum.Font.SourceSansBold
-topBar.Text = "⚡ WAVE AUTO FARM | RARITY FILTER"
+topBar.Text = "AutoFarm by art"
 topBar.Parent = frame
-
 local topCorner = Instance.new("UICorner")
 topCorner.CornerRadius = UDim.new(0, 8)
 topCorner.Parent = topBar
