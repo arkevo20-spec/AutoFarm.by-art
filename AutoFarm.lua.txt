@@ -1,0 +1,1049 @@
+--// Wave Auto Farm - Rarity Filter
+--// Executor: Wave
+--// Generic version: scans Workspace for ProximityPrompt / ClickDetector
+
+repeat task.wait() until game:IsLoaded()
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+----------------------------------------------------
+-- CONFIG
+----------------------------------------------------
+
+local Config = {
+	CollectDelay = 0.08,
+	ScanDelay = 0.15,
+	TeleportDelay = 0.05,
+
+	TeleportOffset = Vector3.new(0, 3, 0),
+
+	AutoSell = true,
+
+	-- ใช้หา GUI ปุ่มกลับฐาน
+	BaseKeywords = {
+		"base",
+		"home",
+		"return",
+		"back"
+	},
+
+	-- ใช้หาปุ่มขาย
+	SellKeywords = {
+		"sell",
+		"sellall",
+		"sell all",
+		"store"
+	},
+
+	-- ใช้หา GUI กระเป๋า
+	BagKeywords = {
+		"bag",
+		"inventory",
+		"backpack",
+		"capacity",
+		"storage"
+	}
+}
+
+----------------------------------------------------
+-- RARITIES
+----------------------------------------------------
+
+local rarities = {
+	"Common",
+	"Uncommon",
+	"Rare",
+	"Epic",
+	"Legendary",
+	"Secret",
+	"Godly",
+	"Divine",
+	"Celestial",
+	"Eternal",
+	"Transcendent",
+	"Astral",
+	"Primordial",
+	"Infinite",
+	"Omnipotent"
+}
+
+local allowedRarity = {}
+
+for _, rarity in ipairs(rarities) do
+	allowedRarity[rarity] = false
+end
+
+----------------------------------------------------
+-- GUI PARENT
+----------------------------------------------------
+
+local guiParent
+
+pcall(function()
+	if typeof(gethui) == "function" then
+		guiParent = gethui()
+	end
+end)
+
+if not guiParent then
+	guiParent = playerGui
+end
+
+----------------------------------------------------
+-- DELETE OLD GUI
+----------------------------------------------------
+
+pcall(function()
+	local old = guiParent:FindFirstChild("WaveAutoFarm")
+	if old then
+		old:Destroy()
+	end
+end)
+
+----------------------------------------------------
+-- SCREEN GUI
+----------------------------------------------------
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "WaveAutoFarm"
+screenGui.ResetOnSpawn = false
+screenGui.DisplayOrder = 999999
+screenGui.Parent = guiParent
+
+----------------------------------------------------
+-- MAIN FRAME
+----------------------------------------------------
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 430, 0, 350)
+frame.Position = UDim2.new(0.05, 0, 0.18, 0)
+frame.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+frame.Parent = screenGui
+
+local frameCorner = Instance.new("UICorner")
+frameCorner.CornerRadius = UDim.new(0, 8)
+frameCorner.Parent = frame
+
+----------------------------------------------------
+-- TOP BAR
+----------------------------------------------------
+
+local topBar = Instance.new("TextLabel")
+topBar.Size = UDim2.new(1, 0, 0, 34)
+topBar.BackgroundColor3 = Color3.fromRGB(140, 0, 180)
+topBar.TextColor3 = Color3.fromRGB(255, 255, 255)
+topBar.TextSize = 13
+topBar.Font = Enum.Font.SourceSansBold
+topBar.Text = "⚡ WAVE AUTO FARM | RARITY FILTER"
+topBar.Parent = frame
+
+local topCorner = Instance.new("UICorner")
+topCorner.CornerRadius = UDim.new(0, 8)
+topCorner.Parent = topBar
+
+----------------------------------------------------
+-- RARITY BUTTONS
+----------------------------------------------------
+
+for i, rarityName in ipairs(rarities) do
+
+	local col = (i - 1) % 3
+	local row = math.floor((i - 1) / 3)
+
+	local button = Instance.new("TextButton")
+
+	button.Size = UDim2.new(0, 130, 0, 24)
+	button.Position = UDim2.new(
+		0,
+		10 + col * 137,
+		0,
+		45 + row * 27
+	)
+
+	button.BackgroundColor3 = Color3.fromRGB(150, 45, 45)
+	button.TextColor3 = Color3.fromRGB(255, 255, 255)
+	button.TextSize = 10
+	button.Font = Enum.Font.SourceSansBold
+	button.Text = rarityName .. ": OFF"
+	button.AutoButtonColor = false
+	button.Parent = frame
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 4)
+	corner.Parent = button
+
+	button.MouseButton1Click:Connect(function()
+
+		allowedRarity[rarityName] =
+			not allowedRarity[rarityName]
+
+		if allowedRarity[rarityName] then
+
+			button.BackgroundColor3 =
+				Color3.fromRGB(0, 165, 80)
+
+			button.Text =
+				rarityName .. ": ON"
+
+		else
+
+			button.BackgroundColor3 =
+				Color3.fromRGB(150, 45, 45)
+
+			button.Text =
+				rarityName .. ": OFF"
+		end
+	end)
+end
+
+----------------------------------------------------
+-- STATUS
+----------------------------------------------------
+
+local status = Instance.new("TextLabel")
+status.Size = UDim2.new(1, -20, 0, 28)
+status.Position = UDim2.new(0, 10, 0, 190)
+status.BackgroundTransparency = 1
+status.TextColor3 = Color3.fromRGB(230, 230, 230)
+status.TextSize = 11
+status.Font = Enum.Font.SourceSansBold
+status.TextXAlignment = Enum.TextXAlignment.Left
+status.Text = "Status: Idle"
+status.Parent = frame
+
+----------------------------------------------------
+-- BAG STATUS
+----------------------------------------------------
+
+local bagStatus = Instance.new("TextLabel")
+bagStatus.Size = UDim2.new(1, -20, 0, 25)
+bagStatus.Position = UDim2.new(0, 10, 0, 215)
+bagStatus.BackgroundTransparency = 1
+bagStatus.TextColor3 = Color3.fromRGB(180, 180, 180)
+bagStatus.TextSize = 11
+bagStatus.Font = Enum.Font.SourceSans
+bagStatus.TextXAlignment = Enum.TextXAlignment.Left
+bagStatus.Text = "Bag: Unknown"
+bagStatus.Parent = frame
+
+----------------------------------------------------
+-- TARGET STATUS
+----------------------------------------------------
+
+local targetStatus = Instance.new("TextLabel")
+targetStatus.Size = UDim2.new(1, -20, 0, 25)
+targetStatus.Position = UDim2.new(0, 10, 0, 238)
+targetStatus.BackgroundTransparency = 1
+targetStatus.TextColor3 = Color3.fromRGB(180, 180, 180)
+targetStatus.TextSize = 11
+targetStatus.Font = Enum.Font.SourceSans
+targetStatus.TextXAlignment = Enum.TextXAlignment.Left
+targetStatus.Text = "Target: None"
+targetStatus.Parent = frame
+
+----------------------------------------------------
+-- START BUTTON
+----------------------------------------------------
+
+local isRunning = false
+local farmToken = 0
+
+local startButton = Instance.new("TextButton")
+startButton.Size = UDim2.new(1, -20, 0, 38)
+startButton.Position = UDim2.new(0, 10, 0, 270)
+startButton.BackgroundColor3 = Color3.fromRGB(0, 165, 80)
+startButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+startButton.TextSize = 12
+startButton.Font = Enum.Font.SourceSansBold
+startButton.Text = "▶ START AUTO FARM"
+startButton.AutoButtonColor = false
+startButton.Parent = frame
+
+local startCorner = Instance.new("UICorner")
+startCorner.CornerRadius = UDim.new(0, 5)
+startCorner.Parent = startButton
+
+----------------------------------------------------
+-- MANUAL SELL
+----------------------------------------------------
+
+local sellButton = Instance.new("TextButton")
+sellButton.Size = UDim2.new(1, -20, 0, 32)
+sellButton.Position = UDim2.new(0, 10, 0, 305)
+sellButton.BackgroundColor3 = Color3.fromRGB(65, 65, 70)
+sellButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+sellButton.TextSize = 11
+sellButton.Font = Enum.Font.SourceSansBold
+sellButton.Text = "💰 RETURN + SELL"
+sellButton.Parent = frame
+
+local sellCorner = Instance.new("UICorner")
+sellCorner.CornerRadius = UDim.new(0, 5)
+sellCorner.Parent = sellButton
+
+----------------------------------------------------
+-- CHARACTER ROOT
+----------------------------------------------------
+
+local function getRoot()
+	local character = player.Character
+
+	if not character then
+		return nil
+	end
+
+	return character:FindFirstChild("HumanoidRootPart")
+end
+
+----------------------------------------------------
+-- FIND RARITY
+----------------------------------------------------
+
+local function getRarity(instance)
+
+	local current = instance
+
+	for _ = 1, 10 do
+
+		if not current then
+			break
+		end
+
+		-- Attribute: Rarity
+		local rarity =
+			current:GetAttribute("Rarity")
+
+		if typeof(rarity) == "string"
+			and rarity ~= "" then
+			return rarity
+		end
+
+		-- Attribute: Tier
+		local tier =
+			current:GetAttribute("Tier")
+
+		if typeof(tier) == "string"
+			and tier ~= "" then
+			return tier
+		end
+
+		-- StringValue: Rarity
+		local rarityValue =
+			current:FindFirstChild("Rarity")
+
+		if rarityValue
+			and rarityValue:IsA("StringValue") then
+
+			return rarityValue.Value
+		end
+
+		-- StringValue: Tier
+		local tierValue =
+			current:FindFirstChild("Tier")
+
+		if tierValue
+			and tierValue:IsA("StringValue") then
+
+			return tierValue.Value
+		end
+
+		current = current.Parent
+	end
+
+	return nil
+end
+
+----------------------------------------------------
+-- NORMALIZE RARITY
+----------------------------------------------------
+
+local function normalizeRarity(rarity)
+
+	if not rarity then
+		return nil
+	end
+
+	local lower =
+		string.lower(tostring(rarity))
+
+	for _, allowed in ipairs(rarities) do
+
+		if string.lower(allowed) == lower then
+			return allowed
+		end
+	end
+
+	return tostring(rarity)
+end
+
+----------------------------------------------------
+-- GET PART
+----------------------------------------------------
+
+local function getPartFromInstance(instance)
+
+	if instance:IsA("BasePart") then
+		return instance
+	end
+
+	if instance:IsA("Attachment") then
+
+		if instance.Parent
+			and instance.Parent:IsA("BasePart") then
+
+			return instance.Parent
+		end
+	end
+
+	if instance:IsA("Model") then
+
+		if instance.PrimaryPart then
+			return instance.PrimaryPart
+		end
+
+		local part =
+			instance:FindFirstChildWhichIsA(
+				"BasePart",
+				true
+			)
+
+		if part then
+			return part
+		end
+	end
+
+	local current = instance
+
+	for _ = 1, 8 do
+
+		if not current then
+			break
+		end
+
+		if current:IsA("BasePart") then
+			return current
+		end
+
+		if current:IsA("Model") then
+
+			if current.PrimaryPart then
+				return current.PrimaryPart
+			end
+
+			local part =
+				current:FindFirstChildWhichIsA(
+					"BasePart",
+					true
+				)
+
+			if part then
+				return part
+			end
+		end
+
+		current = current.Parent
+	end
+
+	return nil
+end
+
+----------------------------------------------------
+-- STRING CONTAINS
+----------------------------------------------------
+
+local function containsKeyword(text, keywords)
+
+	text = string.lower(tostring(text))
+
+	for _, keyword in ipairs(keywords) do
+
+		if string.find(
+			text,
+			string.lower(keyword),
+			1,
+			true
+		) then
+
+			return true
+		end
+	end
+
+	return false
+end
+
+----------------------------------------------------
+-- GET BUTTON TEXT
+----------------------------------------------------
+
+local function getButtonText(button)
+
+	local text = ""
+
+	pcall(function()
+		text = text .. " " .. tostring(button.Name)
+	end)
+
+	pcall(function()
+		if button:IsA("TextButton") then
+			text = text .. " " .. tostring(button.Text)
+		end
+	end)
+
+	return string.lower(text)
+end
+
+----------------------------------------------------
+-- CLICK MATCHING GUI BUTTON
+----------------------------------------------------
+
+local function clickGuiButton(keywords)
+
+	local found = nil
+
+	for _, gui in ipairs(playerGui:GetDescendants()) do
+
+		if gui:IsA("GuiButton") then
+
+			local visible = true
+
+			pcall(function()
+				visible = gui.Visible
+			end)
+
+			if visible then
+
+				local text =
+					getButtonText(gui)
+
+				if containsKeyword(
+					text,
+					keywords
+				) then
+
+					found = gui
+					break
+				end
+			end
+		end
+	end
+
+	if not found then
+		return false
+	end
+
+	-- Try normal GuiButton activation first
+	pcall(function()
+		found:Activate()
+	end)
+
+	-- Wave fallback
+	pcall(function()
+		if found:IsA("TextButton")
+			or found:IsA("ImageButton") then
+
+			firesignal(
+				found.MouseButton1Click
+			)
+		end
+	end)
+
+	return true
+end
+
+----------------------------------------------------
+-- BAG PARSER
+----------------------------------------------------
+
+local function parseBagText(text)
+
+	if not text then
+		return nil, nil
+	end
+
+	local current, maximum =
+		string.match(
+			text,
+			"(%d+)%s*/%s*(%d+)"
+		)
+
+	if current and maximum then
+
+		return tonumber(current),
+			tonumber(maximum)
+	end
+
+	return nil, nil
+end
+
+----------------------------------------------------
+-- CHECK BAG
+----------------------------------------------------
+
+local function checkBag()
+
+	local bestCurrent = nil
+	local bestMax = nil
+
+	for _, gui in ipairs(playerGui:GetDescendants()) do
+
+		if gui:IsA("TextLabel")
+			or gui:IsA("TextButton") then
+
+			local text =
+				tostring(gui.Text)
+
+			local current, maximum =
+				parseBagText(text)
+
+			if current and maximum then
+
+				local relevant = false
+
+				local obj = gui
+
+				for _ = 1, 5 do
+
+					if not obj then
+						break
+					end
+
+					if containsKeyword(
+						obj.Name,
+						Config.BagKeywords
+					) then
+
+						relevant = true
+						break
+					end
+
+					obj = obj.Parent
+				end
+
+				if relevant then
+
+					bestCurrent = current
+					bestMax = maximum
+					break
+				end
+			end
+		end
+	end
+
+	if bestCurrent and bestMax then
+
+		bagStatus.Text =
+			"Bag: " ..
+			bestCurrent ..
+			" / " ..
+			bestMax
+
+		return bestCurrent >= bestMax
+	end
+
+	bagStatus.Text =
+		"Bag: Unknown"
+
+	return false
+end
+
+----------------------------------------------------
+-- RETURN + SELL
+----------------------------------------------------
+
+local function returnAndSell()
+
+	status.Text =
+		"Status: Returning to base..."
+
+	local baseClicked =
+		clickGuiButton(
+			Config.BaseKeywords
+		)
+
+	if baseClicked then
+		task.wait(0.7)
+	else
+		warn(
+			"[WaveAutoFarm] Base button not found"
+		)
+	end
+
+	if Config.AutoSell then
+
+		status.Text =
+			"Status: Selling..."
+
+		task.wait(0.3)
+
+		local sellClicked =
+			clickGuiButton(
+				Config.SellKeywords
+			)
+
+		if not sellClicked then
+
+			warn(
+				"[WaveAutoFarm] Sell button not found"
+			)
+		end
+	end
+
+	task.wait(0.8)
+end
+
+----------------------------------------------------
+-- FIND TARGET CONTAINER
+----------------------------------------------------
+
+local function getTargetContainer(instance)
+
+	local current = instance
+
+	for _ = 1, 10 do
+
+		if not current then
+			break
+		end
+
+		if getRarity(current) then
+			return current
+		end
+
+		current = current.Parent
+	end
+
+	return instance.Parent
+end
+
+----------------------------------------------------
+-- FIND TARGETS
+----------------------------------------------------
+
+local function findBestTarget()
+
+	local root = getRoot()
+
+	if not root then
+		return nil
+	end
+
+	local nearest = nil
+	local nearestDistance = math.huge
+
+	for _, object in ipairs(workspace:GetDescendants()) do
+
+		------------------------------------------------
+		-- PROXIMITY PROMPT
+		------------------------------------------------
+
+		if object:IsA("ProximityPrompt") then
+
+			if object.Enabled ~= false then
+
+				local rarity =
+					normalizeRarity(
+						getRarity(object)
+					)
+
+				if rarity
+					and allowedRarity[rarity] then
+
+					local part =
+						getPartFromInstance(object)
+
+					if part then
+
+						local distance =
+							(
+								root.Position
+								-
+								part.Position
+							).Magnitude
+
+						if distance < nearestDistance then
+
+							nearestDistance = distance
+
+							nearest = {
+								Type = "Prompt",
+								Object = object,
+								Part = part,
+								Rarity = rarity,
+								Distance = distance,
+								Container =
+									getTargetContainer(object)
+							}
+						end
+					end
+				end
+			end
+
+		------------------------------------------------
+		-- CLICK DETECTOR
+		------------------------------------------------
+
+		elseif object:IsA("ClickDetector") then
+
+			local rarity =
+				normalizeRarity(
+					getRarity(object)
+				)
+
+			if rarity
+				and allowedRarity[rarity] then
+
+				local part =
+					getPartFromInstance(object)
+
+				if part then
+
+					local distance =
+						(
+							root.Position
+							-
+							part.Position
+						).Magnitude
+
+					if distance < nearestDistance then
+
+						nearestDistance = distance
+
+						nearest = {
+							Type = "Click",
+							Object = object,
+							Part = part,
+							Rarity = rarity,
+							Distance = distance,
+							Container =
+								getTargetContainer(object)
+						}
+					end
+				end
+			end
+		end
+	end
+
+	return nearest
+end
+
+----------------------------------------------------
+-- COLLECT TARGET
+----------------------------------------------------
+
+local function collectTarget(target)
+
+	if not target then
+		return false
+	end
+
+	local root = getRoot()
+
+	if not root then
+		return false
+	end
+
+	if not target.Part
+		or not target.Part.Parent then
+		return false
+	end
+
+	targetStatus.Text =
+		"Target: " ..
+		tostring(target.Rarity)
+
+	------------------------------------------------
+	-- TELEPORT
+	------------------------------------------------
+
+	pcall(function()
+
+		root.CFrame =
+			target.Part.CFrame
+			+
+			Config.TeleportOffset
+	end)
+
+	task.wait(
+		Config.TeleportDelay
+	)
+
+	------------------------------------------------
+	-- PROMPT
+	------------------------------------------------
+
+	if target.Type == "Prompt" then
+
+		pcall(function()
+			fireproximityprompt(
+				target.Object
+			)
+		end)
+
+		return true
+	end
+
+	------------------------------------------------
+	-- CLICK DETECTOR
+	------------------------------------------------
+
+	if target.Type == "Click" then
+
+		pcall(function()
+
+			fireclickdetector(
+				target.Object
+			)
+
+		end)
+
+		return true
+	end
+
+	return false
+end
+
+----------------------------------------------------
+-- AUTO FARM
+----------------------------------------------------
+
+local function startFarm()
+
+	farmToken += 1
+
+	local token = farmToken
+
+	task.spawn(function()
+
+		while isRunning
+			and token == farmToken do
+
+			------------------------------------------------
+			-- BAG CHECK
+			------------------------------------------------
+
+			if Config.AutoSell
+				and checkBag() then
+
+				returnAndSell()
+
+			else
+
+				------------------------------------------------
+				-- FIND TARGET
+				------------------------------------------------
+
+				local target =
+					findBestTarget()
+
+				if target then
+
+					status.Text =
+						"Status: Collecting " ..
+						tostring(target.Rarity)
+
+					collectTarget(
+						target
+					)
+
+				else
+
+					status.Text =
+						"Status: No matching target"
+
+					targetStatus.Text =
+						"Target: None"
+
+					task.wait(
+						Config.ScanDelay
+					)
+				end
+			end
+
+			task.wait(
+				Config.CollectDelay
+			)
+		end
+	end)
+end
+
+----------------------------------------------------
+-- START / STOP
+----------------------------------------------------
+
+startButton.MouseButton1Click:Connect(function()
+
+	isRunning = not isRunning
+
+	if isRunning then
+
+		startButton.BackgroundColor3 =
+			Color3.fromRGB(180, 45, 45)
+
+		startButton.Text =
+			"⏹ STOP AUTO FARM"
+
+		status.Text =
+			"Status: Running"
+
+		startFarm()
+
+	else
+
+		farmToken += 1
+
+		startButton.BackgroundColor3 =
+			Color3.fromRGB(0, 165, 80)
+
+		startButton.Text =
+			"▶ START AUTO FARM"
+
+		status.Text =
+			"Status: Stopped"
+
+		targetStatus.Text =
+			"Target: None"
+	end
+end)
+
+----------------------------------------------------
+-- MANUAL SELL
+----------------------------------------------------
+
+sellButton.MouseButton1Click:Connect(function()
+
+	returnAndSell()
+
+end)
+
+----------------------------------------------------
+-- CHARACTER RESPAWN
+----------------------------------------------------
+
+player.CharacterAdded:Connect(function()
+
+	task.wait(1)
+
+	if isRunning then
+		status.Text =
+			"Status: Resuming..."
+	end
+
+end)
+
+----------------------------------------------------
+-- STARTUP
+----------------------------------------------------
+
+print("----------------------------------------")
+print("Wave Auto Farm Loaded")
+print("Executor: Wave")
+print("Use the Rarity buttons before START")
+print("----------------------------------------")
+
+status.Text =
+	"Status: Loaded - select Rarity"
