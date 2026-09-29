@@ -57,7 +57,7 @@ local rarities = {
 	"Rare",
 	"Epic",
 	"Legendary",
-	"Mythic"
+	"Mythic",
 	"Secret",
 	"Godly",
 	"Divine",
